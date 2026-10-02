@@ -313,7 +313,15 @@ CUSTOM_CSS = """
     }
 </style>
 """
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+def render_html(html_str: str) -> None:
+    """Render raw HTML safely without triggering Markdown code syntax highlighters."""
+    clean_html = "\n".join(line.strip() for line in html_str.strip().splitlines())
+    if hasattr(st, "html"):
+        st.html(clean_html)
+    else:
+        st.markdown(clean_html, unsafe_allow_html=True)
+
+render_html(CUSTOM_CSS)
 
 # -----------------------------------------------------------------------------
 # 2. STATE & DATABASE INITIALIZATION
@@ -439,7 +447,7 @@ except Exception as ex:
 # -----------------------------------------------------------------------------
 # 3. HEADER & ETHICAL NOTICE
 # -----------------------------------------------------------------------------
-st.markdown(
+render_html(
     """
     <div class="app-header">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -459,11 +467,10 @@ st.markdown(
             </div>
         </div>
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
-st.markdown(
+render_html(
     """
     <div class="demo-banner">
         <b>⚖️ ACADEMIC PROTOTYPE NOTICE:</b>
@@ -471,12 +478,10 @@ st.markdown(
         The system demonstrates automated evidence correlation, police alerting, and location mapping.
         It does not connect to live biometric surveillance and does not identify real individuals.
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
-# Visual Workflow Ribbon (Section 1 & 18)
-st.markdown(
+render_html(
     """
     <div class="workflow-ribbon">
         <div class="workflow-step active"><span class="workflow-dot active">1</span> Upload Evidence</div>
@@ -491,8 +496,7 @@ st.markdown(
         <span style="color: #475569;">➔</span>
         <div class="workflow-step done"><span class="workflow-dot done">6</span> View Location on Map</div>
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 # -----------------------------------------------------------------------------
@@ -597,7 +601,7 @@ with tabs[0]:
         cur_file_name = os.path.basename(st.session_state.active_evidence_path)
         cur_time_str = datetime.now().strftime("%I:%M:%S %p")
 
-        st.markdown(
+        render_html(
             f"""
             <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; border-radius: 8px; padding: 14px; margin-bottom: 14px; font-size: 13px;">
                 <div style="margin-bottom: 6px;"><b>Evidence ID:</b> <code style="color: #38bdf8;">{st.session_state.active_evidence_id}</code></div>
@@ -605,8 +609,7 @@ with tabs[0]:
                 <div style="margin-bottom: 6px;"><b>Evidence Type:</b> {meta.get('media_type', 'Image')} ({meta.get('extension', 'jpg').upper()})</div>
                 <div><b>Upload Time:</b> {cur_time_str}</div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
         atm_labels = [
@@ -621,7 +624,7 @@ with tabs[0]:
         target_lat_str = f"{target_lat:.6f}"
         target_lon_str = f"{target_lon:.6f}"
 
-        st.markdown(
+        render_html(
             f"""
             <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid #334155; border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 13px;">
                 <div style="color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 11px; margin-bottom: 6px;">Kiosk Location Coordinates</div>
@@ -630,8 +633,7 @@ with tabs[0]:
                 <div><b>Latitude:</b> <span class="coord-tag">{target_lat_str}</span></div>
                 <div><b>Longitude:</b> <span class="coord-tag">{target_lon_str}</span></div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
@@ -672,7 +674,7 @@ with tabs[0]:
         r_card_left, r_card_right = st.columns([6, 4])
 
         with r_card_left:
-            st.markdown(
+            render_html(
                 f"""
                 <div style="background: rgba(30, 41, 59, 0.95); border: 2px solid #ef4444; border-radius: 12px; padding: 22px; box-shadow: 0 8px 24px rgba(239, 68, 68, 0.2);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -683,7 +685,6 @@ with tabs[0]:
                             Status: Alert Generated
                         </span>
                     </div>
-                    
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 16px; font-size: 14px; margin-bottom: 18px;">
                         <div><span style="color: #94a3b8;">Alert ID:</span> <b>{alert_info.get('alert_id')}</b></div>
                         <div><span style="color: #94a3b8;">Evidence Type:</span> <b>{alert_info.get('evidence_type')}</b></div>
@@ -694,7 +695,6 @@ with tabs[0]:
                         <div><span style="color: #94a3b8;">Latitude:</span> <span class="coord-tag">{lat_formatted}</span></div>
                         <div><span style="color: #94a3b8;">Longitude:</span> <span class="coord-tag">{lon_formatted}</span></div>
                     </div>
-                    
                     <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                         <a href="{google_maps_url}" target="_blank" class="map-btn-link" style="padding: 10px 20px; font-size: 14px;">
                             📍 VIEW ATM LOCATION ON MAP
@@ -704,8 +704,7 @@ with tabs[0]:
                         </span>
                     </div>
                 </div>
-                """,
-                unsafe_allow_html=True,
+                """
             )
 
         with r_card_right:
@@ -736,7 +735,7 @@ with tabs[0]:
             with email_cols[0]:
                 st.markdown("#### Email Preview Received by Police")
                 plain_body = format_alert_email_text(alert_info)
-                st.markdown(
+                render_html(
                     f"""
                     <div class="email-preview-card">
                         <div style="border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 12px;">
@@ -747,20 +746,18 @@ with tabs[0]:
                             </div>
                         </div>
                         <div style="white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; font-size: 13px;">{plain_body}</div>
-                        
                         <div style="margin-top: 18px; text-align: center;">
                             <a href="{google_maps_url}" target="_blank" class="map-btn-link" style="padding: 12px 24px; font-size: 14px;">
                                 📍 CLICK TO VIEW ATM LOCATION ON GOOGLE MAPS
                             </a>
                         </div>
                     </div>
-                    """,
-                    unsafe_allow_html=True,
+                    """
                 )
 
             with email_cols[1]:
                 st.markdown("#### 📍 Live ATM Location Display")
-                st.markdown(
+                render_html(
                     f"""
                     <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; border-radius: 8px; padding: 14px; margin-bottom: 12px; font-size: 13px;">
                         <div style="color: #38bdf8; font-weight: 700; margin-bottom: 4px;">📍 ATM LOCATION</div>
@@ -772,8 +769,7 @@ with tabs[0]:
                             </a>
                         </div>
                     </div>
-                    """,
-                    unsafe_allow_html=True,
+                    """
                 )
 
                 # Embedded mini focus map centered on ATM
@@ -810,48 +806,44 @@ with tabs[1]:
 
     k1, k2, k3, k4 = st.columns(4)
     with k1:
-        st.markdown(
+        render_html(
             f"""
             <div class="kpi-card-box" style="border-color: rgba(239, 68, 68, 0.4);">
                 <div class="kpi-card-title" style="color: #f87171;">🚨 NEW ALERTS</div>
                 <div class="kpi-card-value" style="color: #ef4444;">{stats['new_alerts']}</div>
                 <div class="kpi-card-sub">Pending Review</div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
     with k2:
-        st.markdown(
+        render_html(
             f"""
             <div class="kpi-card-box">
                 <div class="kpi-card-title">📍 ATM LOCATIONS</div>
                 <div class="kpi-card-value">{unique_atms_count}</div>
                 <div class="kpi-card-sub">Affected Kiosks</div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
     with k3:
-        st.markdown(
+        render_html(
             f"""
             <div class="kpi-card-box">
                 <div class="kpi-card-title">🎥 EVIDENCE</div>
                 <div class="kpi-card-value">{stats['evidence_analyzed']}</div>
                 <div class="kpi-card-sub">Photos & Videos</div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
     with k4:
-        st.markdown(
+        render_html(
             f"""
             <div class="kpi-card-box">
                 <div class="kpi-card-title">📧 EMAIL ALERTS</div>
                 <div class="kpi-card-value">{notifications_count}</div>
                 <div class="kpi-card-sub">Notifications Sent</div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
     st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
@@ -880,7 +872,7 @@ with tabs[1]:
             status_badge_color = "#ef4444" if is_new else "#10b981"
 
             # Alert Card (Section 8)
-            st.markdown(
+            render_html(
                 f"""
                 <div class="police-alert-card">
                     <div class="police-alert-title">
@@ -889,7 +881,6 @@ with tabs[1]:
                             Status: {a.get('status', 'NEW').upper()}
                         </span>
                     </div>
-                    
                     <div class="police-alert-grid">
                         <div class="police-alert-item">ATM: <b>{a.get('atm_id')} ({a.get('atm_name', 'Kiosk')})</b></div>
                         <div class="police-alert-item">Area: <b>{a.get('area', 'Hyderabad')}</b></div>
@@ -899,8 +890,7 @@ with tabs[1]:
                         <div class="police-alert-item">Longitude: <span class="coord-tag">{a_lon_str}</span></div>
                     </div>
                 </div>
-                """,
-                unsafe_allow_html=True,
+                """
             )
 
             # 3 Action Buttons: [VIEW EVIDENCE], [VIEW LOCATION], [MARK AS REVIEWED] (Section 8)
@@ -978,15 +968,14 @@ with tabs[2]:
         st.markdown("#### Priority Hotspots")
         if not ranked_hotspots_df.empty:
             for _, h_row in ranked_hotspots_df.head(4).iterrows():
-                st.markdown(
+                render_html(
                     f"""
                     <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 12px;">
                         <b>#{int(h_row['ranking'])} {h_row['cluster_label']}: {h_row['primary_area']}</b><br>
                         • Volume: {int(h_row['num_withdrawals']):,} txns (₹{float(h_row['total_withdrawal_amount'])/1e5:.1f} Lakhs)<br>
                         • Priority: <b>{h_row['priority_tier']}</b> ({h_row['priority_score']} pts)
                     </div>
-                    """,
-                    unsafe_allow_html=True,
+                    """
                 )
         else:
             st.info("No valid hotspot data is available yet.")
@@ -1028,11 +1017,10 @@ with tabs[3]:
 # FOOTER
 # -----------------------------------------------------------------------------
 st.markdown("---")
-st.markdown(
+render_html(
     """
     <div style="text-align: center; font-size: 11px; color: #64748b; padding: 10px 0;">
         FraudLocate Lite | Problem Statement PS-024 — Data Science & Predictive Analytics | Academic Demonstration System
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
