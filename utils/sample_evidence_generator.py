@@ -8,9 +8,13 @@ No real human faces, CCTV surveillance feeds, banking systems, or police records
 """
 
 import os
-import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 
 SAMPLE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "sample_evidence")
 
@@ -114,6 +118,9 @@ def generate_synthetic_cctv_video(
     os.makedirs(SAMPLE_DIR, exist_ok=True)
     out_path = os.path.join(SAMPLE_DIR, filename)
     if os.path.exists(out_path):
+        return out_path
+
+    if cv2 is None:
         return out_path
 
     width, height = 640, 480
