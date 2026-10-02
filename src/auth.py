@@ -30,6 +30,7 @@ def hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
     Hash a password using PBKDF2-HMAC-SHA256 with 100,000 iterations.
     Returns (salt_hex, hash_hex).
     """
+    clean_pwd = (password or "").strip()
     if not salt:
         salt_bytes = secrets.token_bytes(16)
         salt_hex = salt_bytes.hex()
@@ -39,7 +40,7 @@ def hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
 
     key = hashlib.pbkdf2_hmac(
         "sha256",
-        password.encode("utf-8"),
+        clean_pwd.encode("utf-8"),
         salt_bytes,
         100000,
     )
@@ -48,7 +49,8 @@ def hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
 
 def verify_password(password: str, salt: str, expected_hash: str) -> bool:
     """Securely compare a plaintext candidate password against stored salt and hash."""
-    _, candidate_hash = hash_password(password, salt=salt)
+    clean_pwd = (password or "").strip()
+    _, candidate_hash = hash_password(clean_pwd, salt=salt)
     return secrets.compare_digest(candidate_hash, expected_hash)
 
 
@@ -158,7 +160,8 @@ def authenticate_user(
     seed_demo_users_if_empty(db_path)
 
     clean_id = (login_id or "").strip()
-    if not clean_id or not password:
+    clean_pwd = (password or "").strip()
+    if not clean_id or not clean_pwd:
         return None
 
     with get_db_connection(db_path) as conn:
@@ -178,7 +181,7 @@ def authenticate_user(
         salt = user_dict.get("salt", "")
         pwd_hash = user_dict.get("password_hash", "")
 
-        if not verify_password(password, salt, pwd_hash):
+        if not verify_password(clean_pwd, salt, pwd_hash):
             return None
 
         if required_role and user_dict.get("role") != required_role:

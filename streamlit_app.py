@@ -534,57 +534,101 @@ if not st.session_state.authenticated:
             st.markdown("### 👮 Police Officer Authentication")
             st.caption("Access the live fraud alert dispatch queue, examine ATM coordinates, and mark alerts as reviewed.")
 
-            st.markdown("**Quick-Fill Demo Police Credentials:**")
+            st.markdown("**⚡ 1-Click Instant Demo Login:**")
             q_cols = st.columns(2)
             with q_cols[0]:
-                if st.button("👮 Insp. Vikram Reddy (TS-POLICE-101)", use_container_width=True):
-                    st.session_state["p_login_id"] = "TS-POLICE-101"
-                    st.session_state["p_login_pwd"] = "police101"
-                    st.rerun()
+                if st.button("🚨 1-Click Login: Insp. Vikram (TS-POLICE-101)", type="primary", use_container_width=True):
+                    user_record = authenticate_user("TS-POLICE-101", "police101", required_role="POLICE")
+                    if user_record:
+                        st.session_state.authenticated = True
+                        st.session_state.user = user_record
+                        st.session_state.police_selected_alert_id = None
+                        st.rerun()
             with q_cols[1]:
-                if st.button("👮 SI Ananya Sharma (TS-POLICE-102)", use_container_width=True):
-                    st.session_state["p_login_id"] = "TS-POLICE-102"
-                    st.session_state["p_login_pwd"] = "police102"
+                if st.button("🚨 1-Click Login: SI Ananya (TS-POLICE-102)", type="primary", use_container_width=True):
+                    user_record = authenticate_user("TS-POLICE-102", "police102", required_role="POLICE")
+                    if user_record:
+                        st.session_state.authenticated = True
+                        st.session_state.user = user_record
+                        st.session_state.police_selected_alert_id = None
+                        st.rerun()
+
+            st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+            st.markdown("**Or Auto-Fill Form / Enter Credentials:**")
+            fill_cols = st.columns(2)
+            with fill_cols[0]:
+                if st.button("📋 Auto-Fill Insp. Vikram", use_container_width=True):
+                    st.session_state["p_input_id"] = "TS-POLICE-101"
+                    st.session_state["p_input_pwd"] = "police101"
+                    st.rerun()
+            with fill_cols[1]:
+                if st.button("📋 Auto-Fill SI Ananya", use_container_width=True):
+                    st.session_state["p_input_id"] = "TS-POLICE-102"
+                    st.session_state["p_input_pwd"] = "police102"
                     st.rerun()
 
-            p_id = st.text_input("Police ID or Username:", value=st.session_state.get("p_login_id", ""), placeholder="e.g. TS-POLICE-101 or officer.vikram", key="p_input_id")
-            p_pwd = st.text_input("Password:", value=st.session_state.get("p_login_pwd", ""), type="password", key="p_input_pwd")
+            if "p_input_id" not in st.session_state:
+                st.session_state["p_input_id"] = ""
+            if "p_input_pwd" not in st.session_state:
+                st.session_state["p_input_pwd"] = ""
 
-            if st.button("🚨 LOGIN TO POLICE DASHBOARD", type="primary", use_container_width=True):
-                user_record = authenticate_user(p_id, p_pwd, required_role="POLICE")
+            p_id = st.text_input("Police ID or Username:", key="p_input_id", placeholder="e.g. TS-POLICE-101 or officer.vikram")
+            p_pwd = st.text_input("Password:", key="p_input_pwd", type="password", placeholder="Enter password (e.g. police101)")
+
+            if st.button("🚨 LOGIN TO POLICE DASHBOARD", use_container_width=True):
+                clean_pid = (p_id or "").strip()
+                clean_ppwd = (p_pwd or "").strip()
+                user_record = authenticate_user(clean_pid, clean_ppwd, required_role="POLICE")
                 if user_record:
                     st.session_state.authenticated = True
                     st.session_state.user = user_record
+                    st.session_state.police_selected_alert_id = None
                     st.success(f"Welcome, {user_record['full_name']}! Redirecting to Police Dashboard...")
-                    time.sleep(0.4)
+                    time.sleep(0.3)
                     st.rerun()
                 else:
-                    st.error("Invalid Police ID/Username or Password. Please verify credentials.")
+                    st.error("Invalid Police ID/Username or Password. Please verify credentials or use 1-Click Instant Demo Login above.")
 
         # TAB B: ANALYST / ADMIN LOGIN
         with login_tabs[1]:
             st.markdown("### 🛡️ Cyber Crime Analyst Login")
             st.caption("Upload photo/video evidence, run automated fraud analysis, dispatch police alerts, and manage demo simulation.")
 
-            st.markdown("**Quick-Fill Demo Analyst Credentials:**")
-            if st.button("🛡️ Cyber Analyst Demo Account (analyst)", use_container_width=True):
-                st.session_state["a_login_id"] = "analyst"
-                st.session_state["a_login_pwd"] = "analyst123"
+            st.markdown("**⚡ 1-Click Instant Demo Login:**")
+            if st.button("🔐 1-Click Login: Senior Cyber Analyst (analyst)", type="primary", use_container_width=True):
+                user_record = authenticate_user("analyst", "analyst123", required_role="ANALYST")
+                if user_record:
+                    st.session_state.authenticated = True
+                    st.session_state.user = user_record
+                    st.rerun()
+
+            st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+            st.markdown("**Or Auto-Fill Form / Enter Credentials:**")
+            if st.button("📋 Auto-Fill Analyst Credentials", use_container_width=True):
+                st.session_state["a_input_id"] = "analyst"
+                st.session_state["a_input_pwd"] = "analyst123"
                 st.rerun()
 
-            a_id = st.text_input("Username:", value=st.session_state.get("a_login_id", ""), placeholder="e.g. analyst", key="a_input_id")
-            a_pwd = st.text_input("Password:", value=st.session_state.get("a_login_pwd", ""), type="password", key="a_input_pwd")
+            if "a_input_id" not in st.session_state:
+                st.session_state["a_input_id"] = ""
+            if "a_input_pwd" not in st.session_state:
+                st.session_state["a_input_pwd"] = ""
 
-            if st.button("🔐 LOGIN AS ANALYST", type="primary", use_container_width=True):
-                user_record = authenticate_user(a_id, a_pwd, required_role="ANALYST")
+            a_id = st.text_input("Username:", key="a_input_id", placeholder="e.g. analyst")
+            a_pwd = st.text_input("Password:", key="a_input_pwd", type="password", placeholder="Enter password (e.g. analyst123)")
+
+            if st.button("🔐 LOGIN AS ANALYST", use_container_width=True):
+                clean_aid = (a_id or "").strip()
+                clean_apwd = (a_pwd or "").strip()
+                user_record = authenticate_user(clean_aid, clean_apwd, required_role="ANALYST")
                 if user_record:
                     st.session_state.authenticated = True
                     st.session_state.user = user_record
                     st.success(f"Welcome, {user_record['full_name']}! Redirecting to Analyst Workspace...")
-                    time.sleep(0.4)
+                    time.sleep(0.3)
                     st.rerun()
                 else:
-                    st.error("Invalid Analyst Username or Password. Please verify credentials.")
+                    st.error("Invalid Analyst Username or Password. Please verify credentials or use 1-Click Instant Demo Login above.")
 
     st.stop()
 
@@ -818,14 +862,16 @@ if user_role == "POLICE":
                 st.markdown("#### Actions")
                 if selected_alert.get("status") == "NEW":
                     if st.button("✅ MARK AS REVIEWED", key="det_mark_rev", type="primary", use_container_width=True):
-                        reviewer_tag = f"{current_user['police_id']} ({current_user['full_name']})"
+                        p_badge = current_user.get("police_id") or current_user.get("badge_number") or current_user.get("username") or "TS-POLICE"
+                        reviewer_tag = f"{p_badge} ({current_user.get('full_name', 'Officer')})"
                         mark_alert_reviewed(selected_alert["alert_id"], reviewer_name=reviewer_tag)
                         st.success(f"Alert {selected_alert['alert_id']} marked as REVIEWED.")
                         st.rerun()
                 elif selected_alert.get("status") == "REVIEWED":
                     st.caption(f"Reviewed by: {selected_alert.get('reviewed_by', 'Police Officer')} at {selected_alert.get('reviewed_timestamp', 'N/A')}")
                     if st.button("🏁 MARK AS RESOLVED", key="det_mark_res", use_container_width=True):
-                        reviewer_tag = f"{current_user['police_id']} ({current_user['full_name']})"
+                        p_badge = current_user.get("police_id") or current_user.get("badge_number") or current_user.get("username") or "TS-POLICE"
+                        reviewer_tag = f"{p_badge} ({current_user.get('full_name', 'Officer')})"
                         mark_alert_resolved(selected_alert["alert_id"], reviewer_name=reviewer_tag)
                         st.success(f"Alert {selected_alert['alert_id']} marked as RESOLVED.")
                         st.rerun()
@@ -889,7 +935,8 @@ if user_role == "POLICE":
                     st.link_button("📍 VIEW ATM LOCATION", a_map_url, use_container_width=True)
                 with b_col3:
                     if st.button("✅ MARK AS REVIEWED", key=f"btn_rev_new_{a['alert_id']}_{idx}", type="primary", use_container_width=True):
-                        reviewer_tag = f"{current_user['police_id']} ({current_user['full_name']})"
+                        p_badge = current_user.get("police_id") or current_user.get("badge_number") or current_user.get("username") or "TS-POLICE"
+                        reviewer_tag = f"{p_badge} ({current_user.get('full_name', 'Officer')})"
                         mark_alert_reviewed(a["alert_id"], reviewer_name=reviewer_tag)
                         st.success(f"Alert {a['alert_id']} marked as REVIEWED.")
                         st.rerun()
@@ -941,7 +988,8 @@ if user_role == "POLICE":
                     st.link_button("📍 VIEW ATM LOCATION", a_map_url, use_container_width=True)
                 with b_col3:
                     if st.button("🏁 MARK AS RESOLVED", key=f"btn_res_rev_{a['alert_id']}_{idx}", use_container_width=True):
-                        reviewer_tag = f"{current_user['police_id']} ({current_user['full_name']})"
+                        p_badge = current_user.get("police_id") or current_user.get("badge_number") or current_user.get("username") or "TS-POLICE"
+                        reviewer_tag = f"{p_badge} ({current_user.get('full_name', 'Officer')})"
                         mark_alert_resolved(a["alert_id"], reviewer_name=reviewer_tag)
                         st.success(f"Alert {a['alert_id']} marked as RESOLVED.")
                         st.rerun()
