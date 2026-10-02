@@ -311,7 +311,7 @@ def process_fraud_evidence(
         "detection_status": "Alert Generated",
         "recommended_action": recommended_action,
         "notification_status": "Pending Dispatch",
-        "status": "New",
+        "status": "NEW",
         "reviewed_status": "Unreviewed",
         "cluster_id": hotspot_corr.get("cluster_id", -1),
         "hotspot_score": hotspot_score,

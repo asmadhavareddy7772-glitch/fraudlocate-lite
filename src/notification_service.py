@@ -75,17 +75,23 @@ def format_alert_email_text(alert_data: Dict[str, Any]) -> str:
         ev_file = os.path.basename(alert_data["evidence_path"])
         ev_ref = f"{ev_ref} ({ev_file})"
 
+    status = alert_data.get("status", "NEW").upper()
+
     return (
         "FraudLocate Lite – Police Alert\n\n"
         "A potential fraud event has been detected from submitted evidence.\n\n"
+        "FraudLocate Lite Police Alert\n\n"
         "---\n\n"
         f"Alert ID:\n{alert_id}\n\n"
-        f"Evidence Type:\n{evidence_type}\n\n"
         f"Detection Time:\n{detection_time}\n\n"
+        f"ATM:\n{atm_id}\n\n"
         f"ATM ID:\n{atm_id}\n\n"
         f"Area:\n{area}\n\n"
         f"Latitude:\n{lat_str}\n\n"
         f"Longitude:\n{lon_str}\n\n"
+        f"Evidence:\n{evidence_type}\n\n"
+        f"Evidence Type:\n{evidence_type}\n\n"
+        f"Status:\n{status}\n\n"
         "---\n\n"
         "VIEW ATM LOCATION:\n"
         f"{map_link}\n\n"

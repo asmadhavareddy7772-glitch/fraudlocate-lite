@@ -147,7 +147,7 @@ class TestAlertStoreCRUDAndStatus:
         fetched = get_alert_by_id("ALERT-10001", db_path=temp_db)
         assert fetched is not None
         assert fetched["atm_id"] == "ATM_HYD_102"
-        assert fetched["status"] == "New"
+        assert fetched["status"] in ["NEW", "New"]
         assert fetched["amount"] == 35000.0
 
     def test_lifecycle_status_transitions(self, temp_db):
@@ -167,30 +167,26 @@ class TestAlertStoreCRUDAndStatus:
             "detection_status": "Alert Generated",
             "recommended_action": "Inspect kiosk",
             "notification_status": "Sent",
-            "status": "New",
+            "status": "NEW",
         }
         insert_alert(alert_data, db_path=temp_db)
 
         # 1. Verify New
         active = get_active_alerts(db_path=temp_db)
         assert len(active) == 1
-        assert active[0]["status"] == "New"
+        assert active[0]["status"] == "NEW"
 
-        # 2. Transition to Acknowledged
-        update_alert_status("ALERT-10002", "Acknowledged", officer_name="Officer Sharma", notes="Reviewed", db_path=temp_db)
+        # 2. Transition to REVIEWED
+        mark_alert_reviewed("ALERT-10002", reviewer_name="TS-POLICE-101 (Insp. Vikram Reddy)", db_path=temp_db)
         a_ack = get_alert_by_id("ALERT-10002", db_path=temp_db)
-        assert a_ack["status"] == "Acknowledged"
-        assert a_ack["reviewed_by"] == "Officer Sharma"
+        assert a_ack["status"] == "REVIEWED"
+        assert "TS-POLICE-101" in a_ack["reviewed_by"]
 
-        # 3. Transition to Under Review
-        update_alert_status("ALERT-10002", "Under Review", officer_name="Inspector Rao", notes="Forensic check", db_path=temp_db)
-        a_ur = get_alert_by_id("ALERT-10002", db_path=temp_db)
-        assert a_ur["status"] == "Under Review"
-
-        # 4. Transition to Resolved
-        update_alert_status("ALERT-10002", "Resolved", officer_name="Inspector Rao", notes="Kiosk secured", db_path=temp_db)
+        # 3. Transition to RESOLVED
+        from src.alert_store import mark_alert_resolved
+        mark_alert_resolved("ALERT-10002", reviewer_name="TS-POLICE-101", notes="Kiosk secured", db_path=temp_db)
         a_res = get_alert_by_id("ALERT-10002", db_path=temp_db)
-        assert a_res["status"] == "Resolved"
+        assert a_res["status"] == "RESOLVED"
 
     def test_alert_statistics_kpis(self, temp_db):
         stats_initial = get_alert_statistics(db_path=temp_db)
@@ -430,3 +426,218 @@ class TestReportsGeneration:
         briefing = generate_executive_briefing_text()
         assert "FRAUDLOCATE LITE" in briefing
         assert "PS-024" in briefing
+
+
+class TestPoliceAuthAndPersistentLifecycle:
+    """
+    Test suite specifically testing the user-requested requirements from Section 29:
+    - Role-based authentication (Analyst & Police)
+    - Test 1: Create one fraud alert -> All=1, New=1, Reviewed=0
+    - Test 2: Review the alert -> All=1, New=0, Reviewed=1
+    - Test 3: Create another alert -> All=2, New=1, Reviewed=1
+    - Test 4: Refresh simulation (re-read stats from DB) -> All=2, New=1, Reviewed=1
+    - Test 5: Restart application (re-open DB connection) -> All=2, New=1, Reviewed=1
+    - Test 6: Login again -> Same persistent history!
+    """
+
+    def test_authentication_system(self, temp_db):
+        from src.auth import (
+            init_user_db,
+            seed_demo_users_if_empty,
+            authenticate_user,
+            hash_password,
+            verify_password,
+        )
+
+        init_user_db(temp_db)
+        seed_demo_users_if_empty(temp_db)
+
+        # 1. Test password hashing & salt
+        salt, p_hash = hash_password("secretpass123")
+        assert verify_password("secretpass123", salt, p_hash) is True
+        assert verify_password("wrongpass", salt, p_hash) is False
+
+        # 2. Test Analyst Login
+        analyst = authenticate_user("analyst", "analyst123", db_path=temp_db)
+        assert analyst is not None
+        assert analyst["role"] == "ANALYST"
+        assert "password_hash" not in analyst
+
+        # 3. Test Police Login by Username
+        officer = authenticate_user("officer.vikram", "police101", db_path=temp_db)
+        assert officer is not None
+        assert officer["role"] == "POLICE"
+        assert officer["police_id"] == "TS-POLICE-101"
+
+        # 4. Test Police Login by Police ID
+        officer_by_id = authenticate_user("TS-POLICE-101", "police101", db_path=temp_db)
+        assert officer_by_id is not None
+        assert officer_by_id["username"] == "officer.vikram"
+
+        # 5. Invalid credentials rejection
+        assert authenticate_user("analyst", "wrongpass", db_path=temp_db) is None
+        assert authenticate_user("unknown_user", "somepass", db_path=temp_db) is None
+
+    def test_prompt_section_29_exact_flow(self, temp_db):
+        """
+        Executes Test 1 through Test 6 from User Request Section 29:
+        Test 1: Create 1 alert -> All=1, New=1, Reviewed=0
+        Test 2: Review the alert -> All=1, New=0, Reviewed=1
+        Test 3: Create 2nd alert -> All=2, New=1, Reviewed=1
+        Test 4: Refresh page -> All=2, New=1, Reviewed=1
+        Test 5: Restart application -> All=2, New=1, Reviewed=1
+        Test 6: Login again -> Same persistent history
+        """
+        from src.alert_store import (
+            insert_alert,
+            get_all_alerts,
+            get_new_alerts,
+            get_reviewed_alerts,
+            mark_alert_reviewed,
+            get_alert_statistics,
+        )
+        from src.auth import authenticate_user, seed_demo_users_if_empty
+
+        seed_demo_users_if_empty(temp_db)
+
+        # -------------------------------------------------------------
+        # Test 1: Create one fraud alert.
+        # Expected: All = 1, New = 1, Reviewed = 0
+        # -------------------------------------------------------------
+        alert_1 = {
+            "alert_id": "ALERT-TEST-001",
+            "evidence_id": "EVD-TEST-001",
+            "complaint_id": "CASE-TEST-001",
+            "timestamp": "2026-10-02 10:00:00",
+            "atm_id": "ATM-HYD-024",
+            "atm_name": "SBI Cyber Kiosk",
+            "latitude": 17.4486,
+            "longitude": 78.3908,
+            "area": "Madhapur",
+            "city": "Hyderabad",
+            "amount": 25000.0,
+            "evidence_type": "CCTV Video",
+            "analysis_result": "Potential Fraud Event Detected",
+            "severity": "High Priority",
+            "status": "NEW",
+        }
+        insert_alert(alert_1, db_path=temp_db)
+
+        stats_1 = get_alert_statistics(db_path=temp_db)
+        assert stats_1["total_alerts"] == 1, "Test 1 Failed: All should be 1"
+        assert stats_1["new_alerts"] == 1, "Test 1 Failed: New should be 1"
+        assert stats_1["reviewed_alerts"] == 0, "Test 1 Failed: Reviewed should be 0"
+
+        # Verify segregated query lists
+        new_list_1 = get_new_alerts(db_path=temp_db)
+        rev_list_1 = get_reviewed_alerts(db_path=temp_db)
+        all_list_1 = get_all_alerts(db_path=temp_db)
+        assert len(new_list_1) == 1
+        assert len(rev_list_1) == 0
+        assert len(all_list_1) == 1
+
+        # -------------------------------------------------------------
+        # Test 2: Review the alert.
+        # Expected: All = 1, New = 0, Reviewed = 1
+        # -------------------------------------------------------------
+        police_user = authenticate_user("TS-POLICE-101", "police101", db_path=temp_db)
+        assert police_user is not None
+
+        mark_alert_reviewed(
+            "ALERT-TEST-001",
+            reviewer_name=f"{police_user['police_id']} ({police_user['full_name']})",
+            db_path=temp_db,
+        )
+
+        stats_2 = get_alert_statistics(db_path=temp_db)
+        assert stats_2["total_alerts"] == 1, "Test 2 Failed: All should be 1"
+        assert stats_2["new_alerts"] == 0, "Test 2 Failed: New should be 0"
+        assert stats_2["reviewed_alerts"] == 1, "Test 2 Failed: Reviewed should be 1"
+
+        new_list_2 = get_new_alerts(db_path=temp_db)
+        rev_list_2 = get_reviewed_alerts(db_path=temp_db)
+        all_list_2 = get_all_alerts(db_path=temp_db)
+        assert len(new_list_2) == 0, "Reviewed alert must not appear in New Alerts"
+        assert len(rev_list_2) == 1, "Reviewed alert must appear in Reviewed Alerts"
+        assert len(all_list_2) == 1, "Reviewed alert must remain in All Alerts"
+        assert "TS-POLICE-101" in rev_list_2[0]["reviewed_by"]
+
+        # -------------------------------------------------------------
+        # Test 3: Create another alert.
+        # Expected: All = 2, New = 1, Reviewed = 1
+        # -------------------------------------------------------------
+        alert_2 = {
+            "alert_id": "ALERT-TEST-002",
+            "evidence_id": "EVD-TEST-002",
+            "complaint_id": "CASE-TEST-002",
+            "timestamp": "2026-10-02 10:15:00",
+            "atm_id": "ATM-HYD-102",
+            "atm_name": "HDFC Cash Point",
+            "latitude": 17.4389,
+            "longitude": 78.4514,
+            "area": "Ameerpet",
+            "city": "Hyderabad",
+            "amount": 30000.0,
+            "evidence_type": "Image",
+            "analysis_result": "Potential Fraud Event Detected",
+            "severity": "Critical Priority",
+            "status": "NEW",
+        }
+        insert_alert(alert_2, db_path=temp_db)
+
+        stats_3 = get_alert_statistics(db_path=temp_db)
+        assert stats_3["total_alerts"] == 2, "Test 3 Failed: All should be 2"
+        assert stats_3["new_alerts"] == 1, "Test 3 Failed: New should be 1"
+        assert stats_3["reviewed_alerts"] == 1, "Test 3 Failed: Reviewed should be 1"
+
+        new_list_3 = get_new_alerts(db_path=temp_db)
+        rev_list_3 = get_reviewed_alerts(db_path=temp_db)
+        all_list_3 = get_all_alerts(db_path=temp_db)
+        assert len(new_list_3) == 1
+        assert len(rev_list_3) == 1
+        assert len(all_list_3) == 2
+        assert new_list_3[0]["alert_id"] == "ALERT-TEST-002"
+        assert rev_list_3[0]["alert_id"] == "ALERT-TEST-001"
+
+        # -------------------------------------------------------------
+        # Test 4: Refresh page simulation (re-query database).
+        # Expected: All = 2, New = 1, Reviewed = 1
+        # -------------------------------------------------------------
+        stats_4 = get_alert_statistics(db_path=temp_db)
+        assert stats_4["total_alerts"] == 2, "Test 4 Failed: All should be 2 after refresh"
+        assert stats_4["new_alerts"] == 1, "Test 4 Failed: New should be 1 after refresh"
+        assert stats_4["reviewed_alerts"] == 1, "Test 4 Failed: Reviewed should be 1 after refresh"
+
+        # -------------------------------------------------------------
+        # Test 5: Restart application simulation (new connection to DB).
+        # Expected: All = 2, New = 1, Reviewed = 1
+        # -------------------------------------------------------------
+        import sqlite3
+        # Connect fresh to simulate cold application restart
+        fresh_conn = sqlite3.connect(temp_db)
+        fresh_cursor = fresh_conn.cursor()
+        fresh_cursor.execute("SELECT COUNT(*) FROM alerts")
+        fresh_total = fresh_cursor.fetchone()[0]
+        fresh_cursor.execute("SELECT COUNT(*) FROM alerts WHERE UPPER(status) = 'NEW'")
+        fresh_new = fresh_cursor.fetchone()[0]
+        fresh_cursor.execute("SELECT COUNT(*) FROM alerts WHERE UPPER(status) = 'REVIEWED'")
+        fresh_reviewed = fresh_cursor.fetchone()[0]
+        fresh_conn.close()
+
+        assert fresh_total == 2, "Test 5 Failed: Persistent total should be 2 across restart"
+        assert fresh_new == 1, "Test 5 Failed: Persistent new should be 1 across restart"
+        assert fresh_reviewed == 1, "Test 5 Failed: Persistent reviewed should be 1 across restart"
+
+        # -------------------------------------------------------------
+        # Test 6: Login again simulation.
+        # Expected: Same persistent history.
+        # -------------------------------------------------------------
+        officer_login_again = authenticate_user("officer.vikram", "police101", db_path=temp_db)
+        assert officer_login_again is not None
+
+        history = get_all_alerts(limit=50, db_path=temp_db)
+        assert len(history) == 2, "Test 6 Failed: Alert history should retain 2 alerts"
+        # Chronological sort (newest first)
+        assert history[0]["alert_id"] == "ALERT-TEST-002"
+        assert history[1]["alert_id"] == "ALERT-TEST-001"
+

@@ -3,6 +3,7 @@ FraudLocate Lite - Dedicated Police Alert Dashboard & Tactical Response Terminal
 Designed to be operated on a law-enforcement monitoring terminal (Laptop 2)
 with real-time alert feed, evidence preview, geospatial ATM focus map,
 historical withdrawal correlation, 7-stage incident timeline, and lifecycle status management.
+Single source of truth: SQLite alerts database.
 """
 
 import os
@@ -16,15 +17,28 @@ from streamlit_folium import st_folium
 
 from src.alert_store import (
     get_all_alerts,
-    get_active_alerts,
+    get_new_alerts,
+    get_reviewed_alerts,
+    get_resolved_alerts,
     get_alert_by_id,
     update_alert_status,
     mark_alert_reviewed,
+    mark_alert_resolved,
     get_alert_statistics,
     VALID_STATUSES,
 )
 from src.distance import haversine_distance_km, calculate_travel_time
 from src.route_optimizer import DEFAULT_HQ_COORDS
+from src.notification_service import generate_google_maps_link, generate_osm_link
+
+
+def render_html(html_str: str) -> None:
+    """Render raw HTML safely without triggering Markdown code syntax highlighters."""
+    clean_html = "\n".join(line.strip() for line in html_str.strip().splitlines())
+    if hasattr(st, "html"):
+        st.html(clean_html)
+    else:
+        st.markdown(clean_html, unsafe_allow_html=True)
 
 
 def create_police_focus_map(
