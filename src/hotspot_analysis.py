@@ -8,7 +8,7 @@ It is an operational patrol coverage priority index for decision support,
 NOT a probabilistic prediction of future criminal acts or targets.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import pandas as pd
 import numpy as np
 from src.clustering import NOISE_LABEL_STR
@@ -16,7 +16,7 @@ from src.clustering import NOISE_LABEL_STR
 
 def compute_cluster_statistics(
     df: pd.DataFrame,
-    cluster_centroids: Optional[Dict[int, tuple[float, float]]] = None,
+    cluster_centroids: Optional[Dict[int, Tuple[float, float]]] = None,
     cluster_radii_km: Optional[Dict[int, float]] = None,
 ) -> pd.DataFrame:
     """

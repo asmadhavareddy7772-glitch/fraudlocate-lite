@@ -3,7 +3,7 @@ FraudLocate Lite - Temporal Analytics & Interactive Visualizations.
 Provides hourly, day-of-week, and cross-tabulated heatmap analytics with Plotly.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -30,8 +30,8 @@ def filter_dataset(
     df: pd.DataFrame,
     cluster_filter: Optional[str] = "All",
     day_filter: Optional[List[str]] = None,
-    hour_range: Optional[tuple[int, int]] = None,
-    date_range: Optional[tuple[str, str]] = None,
+    hour_range: Optional[Tuple[int, int]] = None,
+    date_range: Optional[Tuple[str, str]] = None,
     activity_filter: Optional[str] = "All",
 ) -> pd.DataFrame:
     """

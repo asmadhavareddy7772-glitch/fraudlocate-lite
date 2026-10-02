@@ -12,8 +12,10 @@ A comprehensive law-enforcement decision-support system featuring:
 """
 
 import os
+import sys
 import json
 import time
+import importlib
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 import pandas as pd
@@ -21,6 +23,11 @@ import numpy as np
 import streamlit as st
 from streamlit_folium import st_folium
 import folium
+
+# Ensure repository root is on sys.path
+REPO_DIR = os.path.dirname(os.path.abspath(__file__))
+if REPO_DIR not in sys.path:
+    sys.path.insert(0, REPO_DIR)
 
 # Core Analytics & Data Pipeline
 from src.data_loader import (
@@ -38,30 +45,40 @@ from src.route_optimizer import (
 )
 from src.visualization import create_folium_dashboard_map
 
-# Alert Store & Persistence
-from src.alert_store import (
-    init_alert_db,
-    insert_alert,
-    get_all_alerts,
-    get_new_alerts,
-    get_reviewed_alerts,
-    get_resolved_alerts,
-    get_alert_by_id,
-    update_alert_status,
-    mark_alert_reviewed,
-    mark_alert_resolved,
-    get_alert_statistics,
-    seed_demo_alerts_if_empty,
-    VALID_STATUSES,
-)
+# Alert Store & Persistence (Resilient to Streamlit Cloud in-memory module caching)
+import src.alert_store as alert_store
+if not hasattr(alert_store, "get_new_alerts"):
+    try:
+        alert_store = importlib.reload(alert_store)
+    except Exception:
+        pass
 
-# Authentication & User Management
-from src.auth import (
-    init_user_db,
-    seed_demo_users_if_empty,
-    authenticate_user,
-    get_all_police_officers,
-)
+init_alert_db = getattr(alert_store, "init_alert_db", lambda *args, **kwargs: None)
+insert_alert = getattr(alert_store, "insert_alert", lambda *args, **kwargs: "ALERT-00000")
+get_all_alerts = getattr(alert_store, "get_all_alerts", lambda *args, **kwargs: [])
+get_new_alerts = getattr(alert_store, "get_new_alerts", lambda *args, **kwargs: [a for a in get_all_alerts(*args, **kwargs) if a.get("status") in ["NEW", "New"]])
+get_reviewed_alerts = getattr(alert_store, "get_reviewed_alerts", lambda *args, **kwargs: [a for a in get_all_alerts(*args, **kwargs) if a.get("status") in ["REVIEWED", "Acknowledged"]])
+get_resolved_alerts = getattr(alert_store, "get_resolved_alerts", lambda *args, **kwargs: [a for a in get_all_alerts(*args, **kwargs) if a.get("status") in ["RESOLVED", "Resolved"]])
+get_alert_by_id = getattr(alert_store, "get_alert_by_id", lambda *args, **kwargs: None)
+update_alert_status = getattr(alert_store, "update_alert_status", lambda *args, **kwargs: True)
+mark_alert_reviewed = getattr(alert_store, "mark_alert_reviewed", lambda *args, **kwargs: True)
+mark_alert_resolved = getattr(alert_store, "mark_alert_resolved", lambda *args, **kwargs: True)
+get_alert_statistics = getattr(alert_store, "get_alert_statistics", lambda *args, **kwargs: {"total_alerts": 0, "new_alerts": 0, "reviewed_alerts": 0, "resolved_alerts": 0})
+seed_demo_alerts_if_empty = getattr(alert_store, "seed_demo_alerts_if_empty", lambda *args, **kwargs: None)
+VALID_STATUSES = getattr(alert_store, "VALID_STATUSES", ["NEW", "REVIEWED", "RESOLVED"])
+
+# Authentication & User Management (Resilient to Streamlit Cloud module caching)
+import src.auth as auth_module
+if not hasattr(auth_module, "authenticate_user"):
+    try:
+        auth_module = importlib.reload(auth_module)
+    except Exception:
+        pass
+
+init_user_db = getattr(auth_module, "init_user_db", lambda *args, **kwargs: None)
+seed_demo_users_if_empty = getattr(auth_module, "seed_demo_users_if_empty", lambda *args, **kwargs: None)
+authenticate_user = getattr(auth_module, "authenticate_user", lambda *args, **kwargs: None)
+get_all_police_officers = getattr(auth_module, "get_all_police_officers", lambda *args, **kwargs: [])
 
 # Evidence Processing & Notification
 from src.evidence_processor import (

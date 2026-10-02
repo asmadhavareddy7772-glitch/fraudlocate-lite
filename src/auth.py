@@ -10,7 +10,7 @@ import sqlite3
 import hashlib
 import secrets
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "alerts.db")
 
@@ -25,7 +25,7 @@ def get_db_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     return conn
 
 
-def hash_password(password: str, salt: Optional[str] = None) -> tuple[str, str]:
+def hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
     """
     Hash a password using PBKDF2-HMAC-SHA256 with 100,000 iterations.
     Returns (salt_hex, hash_hex).
